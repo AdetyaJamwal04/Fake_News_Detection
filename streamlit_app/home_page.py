@@ -47,7 +47,7 @@ def format_evidence_card(ev: Dict):
 
 # ---------- Sidebar ----------
 st.sidebar.title("Settings")
-max_results = st.sidebar.slider("Max search results per query", 1, 10, 3)  # Changed default from 6 to 3
+max_results = st.sidebar.slider("Max search results per query", 1, 10, 6)  # Changed default from 6 to 3
 use_cache = st.sidebar.checkbox("Cache search results (faster)", True)
 show_raw = st.sidebar.checkbox("Show raw evidence JSON", False)
 

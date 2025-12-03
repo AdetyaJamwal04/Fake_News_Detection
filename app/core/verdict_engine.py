@@ -1,5 +1,3 @@
-# app/core/verdict_engine.py
-
 import math
 
 def sigmoid(x):

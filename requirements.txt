@@ -6,8 +6,9 @@ trafilatura
 newspaper3k
 beautifulsoup4
 requests
-duckduckgo-search
+ddgs
 spacy
+https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.7.0/en_core_web_sm-3.7.0-py3-none-any.whl
 keybert
 nltk
 regex
@@ -18,4 +19,3 @@ tqdm
 redis
 fastapi
 uvicorn
-ddgs
