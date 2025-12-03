@@ -18,3 +18,4 @@ tqdm
 redis
 fastapi
 uvicorn
+ddgs

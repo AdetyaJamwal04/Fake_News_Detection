@@ -47,7 +47,7 @@ def format_evidence_card(ev: Dict):
 
 # ---------- Sidebar ----------
 st.sidebar.title("Settings")
-max_results = st.sidebar.slider("Max search results per query", 1, 10, 6)
+max_results = st.sidebar.slider("Max search results per query", 1, 10, 3)  # Changed default from 6 to 3
 use_cache = st.sidebar.checkbox("Cache search results (faster)", True)
 show_raw = st.sidebar.checkbox("Show raw evidence JSON", False)
 
@@ -129,8 +129,7 @@ if submit:
         st.markdown(f"### **Final Verdict:** <span style='color:{color};font-weight:600'>{verdict_label}</span>", unsafe_allow_html=True)
         st.write(f"**Confidence:** {verdict_result['confidence']*100:.1f}%")
         st.write(f"**Net score:** {verdict_result['net_score']}")
-        st.write(f"**Total sources:** {verdict_result.get('evidence_count', len(evidences))}")
-        st.write(f"**Quality sources:** {verdict_result.get('quality_evidence_count', len(evidences))}")
+        st.write(f"**Sources analyzed:** {len(evidences)}")
     with col2:
         # visual confidence bar
         st.metric("Confidence", f"{verdict_result['confidence']*100:.1f}%")
