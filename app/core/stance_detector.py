@@ -7,10 +7,10 @@ def load_nli_classifier():
         print("Loading stance detection model...")
         classifier = pipeline(
             "zero-shot-classification",
-            model="facebook/bart-large-mnli",
+            model="facebook/bart-large-mnli",  # ✅ Back to BART-large for better accuracy
             device=-1  # Use CPU
         )
-        print("✓ Stance detector loaded successfully")
+        print("✓ Stance detector loaded successfully (BART-large)")
         return classifier
     except Exception as e:
         raise RuntimeError(
@@ -28,10 +28,7 @@ def detect_stance(evidence_sentence: str, claim: str):
     """
     Performs zero-shot stance detection using NLI.
     
-    Improved approach: Format as entailment task for better accuracy.
-    - "supports" = evidence entails/supports the claim
-    - "refutes" = evidence contradicts the claim  
-    - "neutral" = evidence discusses but doesn't clearly support/refute
+    Uses BART-large for best accuracy (slower but more reliable).
     
     Args:
         evidence_sentence: The sentence from the article
@@ -43,17 +40,22 @@ def detect_stance(evidence_sentence: str, claim: str):
     if not evidence_sentence:
         return {"label": "neutral", "confidence": 0}
     
-    # Format as premise-hypothesis for NLI
-    # The evidence is the premise, claim is the hypothesis
-    premise = f"{evidence_sentence}"
+    # Better formatting for financial/numeric claims
+    premise = evidence_sentence.strip()
     
     try:
-        result = nli_classifier(premise, LABELS, hypothesis_template="This supports the claim that {}. {}".format(claim, "{}"))
+        # Use better hypothesis template for entailment
+        result = nli_classifier(
+            premise, 
+            LABELS,
+            hypothesis_template="This text says that {}.",
+            multi_label=False
+        )
         
         label = result["labels"][0]
         confidence = float(result["scores"][0])
         
-        # Map neutral to discusses for consistency with rest of system
+        # Map neutral to discusses for consistency
         if label == "neutral":
             label = "discusses"
         

@@ -2,6 +2,8 @@ from sentence_transformers import SentenceTransformer, util
 import torch
 
 # Load SBERT model globally only once
+# For faster performance, use: "all-MiniLM-L6-v2" (80MB, 5x faster, slight accuracy drop)
+# For best accuracy, use: "sentence-transformers/all-mpnet-base-v2" (420MB, slower, best quality)
 sbert_model = SentenceTransformer("sentence-transformers/all-mpnet-base-v2")
 
 def get_best_matching_sentence(claim: str, sentences: list):
