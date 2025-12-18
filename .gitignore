@@ -56,6 +56,10 @@ torch/
 .env.local
 .env.*.local
 
+# Private keys
+*.pem
+*.key
+
 # Logs
 *.log
 logs/
