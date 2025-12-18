@@ -19,3 +19,6 @@ tqdm
 redis
 fastapi
 uvicorn
+flask
+flask-cors
+gunicorn
