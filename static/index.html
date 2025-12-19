@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,33 +10,48 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
+
 <body>
     <div class="background-gradient"></div>
-    
+
     <header>
         <div class="container">
-            <div class="logo">
-                <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <rect width="32" height="32" rx="8" fill="url(#gradient)"/>
-                    <path d="M16 8L20 14H12L16 8Z" fill="white"/>
-                    <path d="M16 24L12 18H20L16 24Z" fill="white"/>
-                    <defs>
-                        <linearGradient id="gradient" x1="0" y1="0" x2="32" y2="32">
-                            <stop stop-color="#667eea"/>
-                            <stop offset="1" stop-color="#764ba2"/>
-                        </linearGradient>
-                    </defs>
-                </svg>
-                <h1>Fake News Detector</h1>
+            <div class="header-content">
+                <div class="logo">
+                    <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <rect width="32" height="32" rx="8" fill="url(#gradient)" />
+                        <path d="M16 8L20 14H12L16 8Z" fill="white" />
+                        <path d="M16 24L12 18H20L16 24Z" fill="white" />
+                        <defs>
+                            <linearGradient id="gradient" x1="0" y1="0" x2="32" y2="32">
+                                <stop stop-color="#06b6d4" />
+                                <stop offset="1" stop-color="#3b82f6" />
+                            </linearGradient>
+                        </defs>
+                    </svg>
+                    <div>
+                        <h1>Fake News Detector</h1>
+                        <p class="tagline">AI-Powered Fact-Checking</p>
+                    </div>
+                </div>
+                <div class="theme-toggle">
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="theme-toggle-btn">
+                        <span class="slider">
+                            <span class="icon sun">☀️</span>
+                            <span class="icon moon">🌙</span>
+                        </span>
+                    </label>
+                </div>
             </div>
-            <p class="tagline">AI-Powered Fact-Checking</p>
         </div>
     </header>
 
     <main class="container">
         <section class="hero">
             <h2>Verify Claims with AI</h2>
-            <p>Our advanced AI analyzes claims using web evidence, semantic similarity, and stance detection to determine truthfulness.</p>
+            <p>Our advanced AI analyzes claims using web evidence, semantic similarity, and stance detection to
+                determine truthfulness.</p>
         </section>
 
         <section class="input-section glass-card">
@@ -45,19 +61,12 @@
             </div>
 
             <div class="tab-content active" id="text-tab">
-                <textarea 
-                    id="claim-input" 
-                    placeholder="Enter a claim to fact-check... (e.g., 'The Earth is flat')"
-                    rows="4"
-                ></textarea>
+                <textarea id="claim-input" placeholder="Enter a claim to fact-check... (e.g., 'The Earth is flat')"
+                    rows="4"></textarea>
             </div>
 
             <div class="tab-content" id="url-tab">
-                <input 
-                    type="url" 
-                    id="url-input" 
-                    placeholder="Enter article URL to extract and verify claims..."
-                >
+                <input type="url" id="url-input" placeholder="Enter article URL to extract and verify claims...">
             </div>
 
             <div class="controls">
@@ -67,8 +76,10 @@
                 </div>
                 <button id="check-btn" class="primary-btn">
                     <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                        <path d="M10 18C14.4183 18 18 14.4183 18 10C18 5.58172 14.4183 2 10 2C5.58172 2 2 5.58172 2 10C2 14.4183 5.58172 18 10 18Z" stroke="currentColor" stroke-width="2"/>
-                        <path d="M7 10L9 12L13 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        <path
+                            d="M10 18C14.4183 18 18 14.4183 18 10C18 5.58172 14.4183 2 10 2C5.58172 2 2 5.58172 2 10C2 14.4183 5.58172 18 10 18Z"
+                            stroke="currentColor" stroke-width="2" />
+                        <path d="M7 10L9 12L13 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
                     </svg>
                     Fact-Check
                 </button>
@@ -92,7 +103,7 @@
                     <!-- Dynamic verdict badge -->
                 </div>
                 <h3 id="claim-text" class="claim-text"></h3>
-                
+
                 <div class="metrics">
                     <div class="metric">
                         <label>Confidence</label>
@@ -127,8 +138,8 @@
         <section id="error-section" class="error-section" style="display: none;">
             <div class="glass-card error-card">
                 <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-                    <circle cx="24" cy="24" r="20" stroke="#ef4444" stroke-width="3"/>
-                    <path d="M24 14V26M24 30V34" stroke="#ef4444" stroke-width="3" stroke-linecap="round"/>
+                    <circle cx="24" cy="24" r="20" stroke="#ef4444" stroke-width="3" />
+                    <path d="M24 14V26M24 30V34" stroke="#ef4444" stroke-width="3" stroke-linecap="round" />
                 </svg>
                 <h3>Error</h3>
                 <p id="error-message"></p>
@@ -146,4 +157,5 @@
 
     <script src="/static/app.js"></script>
 </body>
+
 </html>

@@ -1,3 +1,22 @@
+// Theme Toggle
+const themeToggle = document.getElementById('theme-toggle-btn');
+const htmlElement = document.documentElement;
+
+// Check for saved theme preference or default to  'dark'
+const currentTheme = localStorage.getItem('theme') || 'dark';
+htmlElement.setAttribute('data-theme', currentTheme);
+themeToggle.checked = currentTheme === 'dark';
+
+themeToggle.addEventListener('change', function () {
+    if (this.checked) {
+        htmlElement.setAttribute('data-theme', 'dark');
+        localStorage.setItem('theme', 'dark');
+    } else {
+        htmlElement.setAttribute('data-theme', 'light');
+        localStorage.setItem('theme', 'light');
+    }
+});
+
 // Tab switching
 const tabBtns = document.querySelectorAll('.tab-btn');
 const tabContents = document.querySelectorAll('.tab-content');
