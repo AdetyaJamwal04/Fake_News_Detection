@@ -2,7 +2,7 @@
 Flask REST API for Fake News Detection - AWS Deployment
 """
 
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import sys
 import os
@@ -20,8 +20,8 @@ from app.core.web_search import web_search
 from app.core.evidence_aggregator import build_evidence
 from app.core.verdict_engine import compute_final_verdict
 
-# Initialize Flask
-app = Flask(__name__)
+# Initialize Flask with static folder
+app = Flask(__name__, static_folder='static', static_url_path='/static')
 CORS(app)
 
 # Logging
@@ -30,6 +30,11 @@ logger = logging.getLogger(__name__)
 
 @app.route('/')
 def index():
+    """Serve the frontend"""
+    return send_from_directory('static', 'index.html')
+
+@app.route('/api')
+def api_info():
     return jsonify({
         'name': 'Fake News Detector API',
         'version': '1.0.0',
