@@ -18,9 +18,18 @@ tabBtns.forEach(btn => {
 const maxResultsSlider = document.getElementById('max-results');
 const maxResultsValue = document.getElementById('max-results-value');
 
-maxResultsSlider.addEventListener('input', (e) => {
-    maxResultsValue.textContent = e.target.value;
-});
+function updateSlider() {
+    const value = maxResultsSlider.value;
+    const max = maxResultsSlider.max;
+    const percentage = (value / max) * 100;
+
+    maxResultsValue.textContent = value;
+    maxResultsSlider.style.background = `linear-gradient(to right, #6366f1 0%, #ec4899 ${percentage}%, rgba(148, 163, 184, 0.3) ${percentage}%)`;
+}
+
+maxResultsSlider.addEventListener('input', updateSlider);
+// Initialize slider on load
+updateSlider();
 
 // Sections
 const inputSection = document.querySelector('.input-section');
