@@ -1,7 +1,7 @@
 streamlit
 sentence-transformers
 transformers
-torch
+torch --index-url https://download.pytorch.org/whl/cpu
 trafilatura
 newspaper3k
 beautifulsoup4
