@@ -1,5 +1,5 @@
 """
-Flask REST API for Fake News Detection with Optimizations
+Flask REST API for Claim Verification with Optimizations
 
 Features:
 - Rate limiting (5 requests/minute per IP)

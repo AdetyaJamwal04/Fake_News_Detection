@@ -1,6 +1,6 @@
 # 🔍 VeriFact
 
-**AI-Powered Fact-Checking System using NLP and Machine Learning**
+**AI-Powered Claim Verification System using NLP and Machine Learning**
 
 [![Deploy to EC2](https://github.com/AdetyaJamwal04/Fake_News_Detection/actions/workflows/deploy.yml/badge.svg)](https://github.com/AdetyaJamwal04/Fake_News_Detection/actions/workflows/deploy.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -8,7 +8,7 @@
 
 ## Overview
 
-A production-ready fact-checking API that verifies claims by:
+A production-ready claim verification API that analyzes claims by:
 1. **Extracting claims** from text or URLs
 2. **Searching the web** for evidence (Tavily → Brave → DuckDuckGo)
 3. **Analyzing stance** using NLI models (BART-MNLI)

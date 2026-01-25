@@ -1,4 +1,4 @@
-# VeriFact: Automated Neural Fact-Checking System
+# VeriFact: Automated Neural Claim Verification System
 # Technical Implementation Report
 
 ## 1. Introduction
@@ -21,7 +21,7 @@ It does not verify image/video content (deepfakes) or generate new knowledge bey
 ## 2. System Overview
 
 ### 2.1 High-Level Description
-VeriFact is a modular, retrieval-augmented fact-checking API. It accepts natural language claims, retrieves relevant documents from the open web, filters content using semantic similarity, and analyzes the stance of the retrieved content relative to the claim. The final output is a structured verdict ("Likely True", "Likely False", etc.) supported by a confidence score and a transparent audit trail of evidence.
+VeriFact is a modular, retrieval-augmented claim verification API. It accepts natural language claims, retrieves relevant documents from the open web, filters content using semantic similarity, and analyzes the stance of the retrieved content relative to the claim. The final output is a structured verdict ("Likely True", "Likely False", etc.) supported by a confidence score and a transparent audit trail of evidence.
 
 ### 2.2 Design Philosophy
 The system prioritizes **provenance** and **explainability** over generative capabilities. Unlike Large Language Models (LLMs) which may hallucinate facts, VeriFact functions as a neural search-and-verify engine. Every component of the verdict is traceable to a specific source URL and a specific sentence within that source.
@@ -111,7 +111,7 @@ The "best matching sentence" is paired with the claim and passed to a **Cross-En
 3.  **Spacy (`en_core_web_sm`):** Lightweight CPU-optimized model for tokenization and NER.
 
 ### 6.2 Inference Methodology
-The system uses **Zero-Shot Classification** pipelines. This is a crucial design choice: explicit training on "fake news" datasets leads to rapid obsolescence as topics shift. Zero-shot models leverage generalized linguistic reasoning, allowing the system to verify claims on novel topics without retraining.
+The system uses **Zero-Shot Classification** pipelines. This is a crucial design choice: explicit training on "fake claims" datasets leads to rapid obsolescence as topics shift. Zero-shot models leverage generalized linguistic reasoning, allowing the system to verify claims on novel topics without retraining.
 
 ### 6.3 Inference Trade-offs
 -   **Latency:** Transformer inference on CPU is computationally expensive. The system manages this by limiting input length and utilizing threading for web I/O to mask some latency.

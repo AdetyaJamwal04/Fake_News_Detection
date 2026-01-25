@@ -1,6 +1,6 @@
 # Build Guide
 
-Complete guide for building, running, and deploying VeriFact.
+Complete guide for building, running, and deploying VeriFact - the Claim Verification System.
 
 ## Prerequisites
 
