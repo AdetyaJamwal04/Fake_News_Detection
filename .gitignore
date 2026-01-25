@@ -96,3 +96,6 @@ data/
 *.csv
 *.json
 !requirements.txt
+
+FAILURE_CASE_ANALYSIS.md
+fact-check-*.json
