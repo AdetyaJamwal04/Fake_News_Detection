@@ -10,7 +10,7 @@
 
 A production-ready fact-checking API that verifies claims by:
 1. **Extracting claims** from text or URLs
-2. **Searching the web** for evidence (Tavily, DuckDuckGo)
+2. **Searching the web** for evidence (Tavily → Brave → DuckDuckGo)
 3. **Analyzing stance** using NLI models (BART-MNLI)
 4. **Computing verdicts** with weighted credibility scoring
 
@@ -33,7 +33,7 @@ flowchart LR
 |--------|-------------|
 | `claim_extractor` | Extracts claims from text/URLs using NLP |
 | `query_generator` | Generates search queries using KeyBERT |
-| `web_search` | Multi-API search (Tavily + DuckDuckGo fallback) |
+| `web_search` | Multi-API search (Tavily → Brave → DuckDuckGo) |
 | `scraper` | Fetches and cleans article content |
 | `embedder` | Sentence embeddings using SBERT |
 | `stance_detector` | NLI-based stance classification |

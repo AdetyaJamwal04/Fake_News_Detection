@@ -148,7 +148,9 @@ The project uses automated deployment via `.github/workflows/deploy.yml`:
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `TAVILY_API_KEY` | Yes | API key for Tavily search |
+| `TAVILY_API_KEY` | Recommended | API key for Tavily search (primary) |
+| `BRAVE_API_KEY` | No | API key for Brave Search (fallback) |
+| `STANCE_MODEL` | No | `bart` (default) or `deberta` |
 | `PORT` | No | Server port (default: 5000) |
 | `DEBUG` | No | Enable debug mode (default: false) |
 

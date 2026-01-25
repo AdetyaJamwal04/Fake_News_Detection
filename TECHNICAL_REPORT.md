@@ -49,7 +49,7 @@ The system follows a layered architecture:
 Execution is synchronous but parallelized at the I/O layer. The main thread accepts a request and invokes the pipeline. The **Evidence Aggregation** phase utilizes a `ThreadPoolExecutor` to perform concurrent web scraping and processing of multiple search results, significantly reducing total latency.
 
 ### 3.3 Failure Handling
--   **Search Redundancy:** The search module implements a fallback chain (Tavily $\rightarrow$ Brave $\rightarrow$ DuckDuckGo) to ensure continuity if primary APIs fail or rate-limit.
+-   **Search Redundancy:** The search module implements a 3-tier fallback chain (Tavily → Brave → DuckDuckGo) to ensure continuity if primary APIs fail or are rate-limited.
 -   **Graceful Degradation:** If specific URLs fail to scrape, they are logged and skipped without halting the pipeline.
 -   **Safety Defaults:** If no evidence is found, the system defaults to an "UNVERIFIED" state rather than guessing.
 
@@ -91,7 +91,7 @@ To mitigate "keyword myopia," `spacy` Named Entity Recognition (NER) identifies 
 Retrieved URLs are scraped using `trafilatura`, which strips boilerplate (ads, navbars). The text is segmented into sentences.
 
 ### 5.4 Embedding Generation
-The system utilizes **Sentence-BERT (SBERT)** to map the claim ($C$) and every candidate sentence ($S_i$) into a 768-dimensional vector space. Cosine similarity is computed:
+The system utilizes **Sentence-BERT (SBERT)** to map the claim ($C$) and every candidate sentence ($S_i$) into a 384-dimensional vector space. Cosine similarity is computed:
 $$Similarity(C, S_i) = \frac{C \cdot S_i}{\|C\| \|S_i\|}$$
 Only the sentence with the highest similarity score from each document is retained for stance analysis, acting as a relevance filter.
 
@@ -106,7 +106,7 @@ The "best matching sentence" is paired with the claim and passed to a **Cross-En
 ## 6. Model Selection and Usage
 
 ### 6.1 Models Used
-1.  **Sentence-BERT (`all-mpnet-base-v2`):** Used for semantic search. Chosen for its state-of-the-art performance on semantic textual similarity (STS) benchmarks, offering a balance between accuracy and computational cost (~420MB).
+1.  **Sentence-BERT (`all-MiniLM-L6-v2`):** Used for semantic search. Chosen for its excellent performance on semantic textual similarity (STS) benchmarks while being lightweight (~80MB) and fast on CPU.
 2.  **DeBERTa-v3 (`moritzlaurer/deberta-v3-base-zeroshot-v2.0`):** Used for zero-shot stance detection. It treats the problem as NLI, where the claim is the hypothesis.
 3.  **Spacy (`en_core_web_sm`):** Lightweight CPU-optimized model for tokenization and NER.
 

@@ -4,8 +4,8 @@ Stance Detector Module with Optimizations
 Uses zero-shot classification to determine if evidence supports, refutes, 
 or discusses a claim.
 
-Default model: DeBERTa-v3 (~700MB, faster, sufficient accuracy)
-Alternative: BART-MNLI (set STANCE_MODEL=bart, ~1.6GB, higher accuracy)
+Default model: BART-MNLI (~1.6GB, higher accuracy)
+Alternative: DeBERTa-v3 (set STANCE_MODEL=deberta, ~700MB, faster)
 
 Optimizations applied:
 - Confidence calibration (Rank 13)
