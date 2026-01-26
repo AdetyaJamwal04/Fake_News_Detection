@@ -52,6 +52,25 @@ HIGH_STAKES_KEYWORDS = [
     "arrested", "convicted", "resigned", "impeached"
 ]
 
+# Relationship claim patterns that require explicit entity verification
+RELATIONSHIP_PATTERNS = [
+    r"(\w+)\s+is\s+(\w+)'s\s+(son|daughter|father|mother|wife|husband|brother|sister|child|parent)",
+    r"(\w+)\s+is\s+the\s+(son|daughter|father|mother|wife|husband|brother|sister|child|parent)\s+of\s+(\w+)",
+    r"(\w+)\s+married\s+to\s+(\w+)",
+    r"(\w+)\s+born\s+to\s+(\w+)",
+]
+
+# Relationship keywords for quick detection
+RELATIONSHIP_KEYWORDS = [
+    "son of", "daughter of", "father of", "mother of", 
+    "wife of", "husband of", "brother of", "sister of",
+    "child of", "parent of", "married to", 
+    "'s son", "'s daughter", "'s father", "'s mother", "'s wife", "'s husband",
+    "s son", "s daughter", "s father", "s mother", "s wife", "s husband",  # Without apostrophe
+    "is the son", "is the daughter", "is the father", "is the mother",
+    "is the wife", "is the husband", "is the child", "is the parent"
+]
+
 
 def get_current_model() -> str:
     """Return the currently loaded model name."""
@@ -70,6 +89,90 @@ def is_high_stakes_claim(claim: str) -> bool:
     """Check if the claim involves high-stakes assertions requiring stricter verification."""
     claim_lower = claim.lower()
     return any(keyword in claim_lower for keyword in HIGH_STAKES_KEYWORDS)
+
+
+def is_relationship_claim(claim: str) -> bool:
+    """Check if the claim asserts a familial/personal relationship between entities."""
+    claim_lower = claim.lower()
+    return any(keyword in claim_lower for keyword in RELATIONSHIP_KEYWORDS)
+
+
+def extract_relationship_entities(text: str) -> Tuple[str, str, str]:
+    """
+    Extract relationship entities from text: (person1, relationship, person2).
+    
+    Examples:
+    - "Rahul Gandhi is Narendra Modi's son" -> ("rahul gandhi", "son", "narendra modi")
+    - "X is the daughter of Y" -> ("x", "daughter", "y")
+    
+    Returns:
+        Tuple of (subject, relationship_type, object) or (None, None, None)
+    """
+    text_lower = text.lower()
+    
+    # Pattern 1: "X is Y's [relationship]" (with apostrophe)
+    pattern1 = r"(\w+(?:\s+\w+)?)\s+is\s+(\w+(?:\s+\w+)?)'s\s+(son|daughter|father|mother|wife|husband|brother|sister|child|parent)"
+    match = re.search(pattern1, text_lower)
+    if match:
+        return (match.group(1).strip(), match.group(3).strip(), match.group(2).strip())
+    
+    # Pattern 2: "X is the [relationship] of Y"
+    pattern2 = r"(\w+(?:\s+\w+)?)\s+is\s+the\s+(son|daughter|father|mother|wife|husband|brother|sister|child|parent)\s+of\s+(\w+(?:\s+\w+)?)"
+    match = re.search(pattern2, text_lower)
+    if match:
+        return (match.group(1).strip(), match.group(2).strip(), match.group(3).strip())
+    
+    # Pattern 3: "X is Ys [relationship]" (possessive without apostrophe, e.g., "Rahul is Modis son")
+    pattern3 = r"(\w+(?:\s+\w+)?)\s+is\s+(\w+(?:\s+\w+)?)s\s+(son|daughter|father|mother|wife|husband|brother|sister|child|parent)"
+    match = re.search(pattern3, text_lower)
+    if match:
+        return (match.group(1).strip(), match.group(3).strip(), match.group(2).strip())
+    
+    return (None, None, None)
+
+
+def verify_relationship_claim(claim: str, evidence: str) -> Tuple[bool, str]:
+    """
+    Verify if evidence supports/refutes a relationship claim.
+    
+    For relationship claims like "X is Y's son", we need to check if:
+    1. Evidence mentions a DIFFERENT relationship for the same person
+    2. Evidence explicitly names a different parent/relative
+    
+    Returns:
+        Tuple of (has_contradiction, reason)
+    """
+    claim_entities = extract_relationship_entities(claim)
+    evidence_entities = extract_relationship_entities(evidence)
+    
+    if claim_entities[0] is None:
+        return (False, "")
+    
+    claim_subject, claim_rel, claim_object = claim_entities
+    
+    # If evidence also mentions a relationship for the same subject
+    if evidence_entities[0] is not None:
+        ev_subject, ev_rel, ev_object = evidence_entities
+        
+        # Same subject, same relationship type, but DIFFERENT object = contradiction
+        if claim_subject in ev_subject or ev_subject in claim_subject:
+            if claim_rel == ev_rel and claim_object not in ev_object and ev_object not in claim_object:
+                return (True, f"different_{claim_rel}:{ev_object}")
+    
+    # Check for explicit naming patterns that contradict the claim
+    evidence_lower = evidence.lower()
+    
+    # If claim says "X is Y's son" but evidence says "X is the son of Z" (Z != Y)
+    if claim_rel in ["son", "daughter", "child"]:
+        # Look for "son/daughter of [someone]" in evidence
+        parent_pattern = rf"{claim_subject}\s+is\s+the\s+{claim_rel}\s+of\s+(\w+(?:\s+\w+)?)"
+        match = re.search(parent_pattern, evidence_lower)
+        if match:
+            actual_parent = match.group(1).strip()
+            if claim_object not in actual_parent and actual_parent not in claim_object:
+                return (True, f"actual_parent:{actual_parent}")
+    
+    return (False, "")
 
 
 def detect_outcome_mismatch(claim: str, evidence: str) -> Tuple[bool, str]:
@@ -171,6 +274,19 @@ def detect_stance(evidence_sentence: str, claim: str) -> Dict:
                 "mismatch_reason": mismatch_reason
             }
     
+    # v2.3: Check for relationship claim verification
+    if is_relationship_claim(claim):
+        has_contradiction, contradiction_reason = verify_relationship_claim(claim, premise)
+        if has_contradiction:
+            logger.info(f"Relationship contradiction detected: {contradiction_reason}")
+            return {
+                "label": "refutes",
+                "confidence": 0.85,  # High confidence - explicit contradiction
+                "modifier_detected": True,
+                "mismatch_reason": f"relationship_mismatch:{contradiction_reason}"
+            }
+
+    
     try:
         nli_classifier, _ = get_nli_classifier()
         
@@ -213,6 +329,14 @@ def detect_stance(evidence_sentence: str, claim: str) -> Dict:
                 # Not confident enough - downgrade to "discusses"
                 label = "discusses"
                 logger.info(f"High-stakes claim, low confidence ({confidence:.2f}) - downgrading to discusses")
+        
+        # v2.3: For relationship claims, require VERY high confidence for "supports"
+        # Topic matching often causes false positives for biographical claims
+        if is_relationship_claim(claim) and label == "supports":
+            if confidence < 0.8:
+                # Relationship claims need explicit confirmation
+                label = "discusses"
+                logger.info(f"Relationship claim, insufficient confidence ({confidence:.2f}) - downgrading to discusses")
         
         if label == "neutral":
             label = "discusses"
