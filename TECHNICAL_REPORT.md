@@ -101,6 +101,19 @@ The "best matching sentence" is paired with the claim and passed to a **Cross-En
 -   **Contradiction:** The evidence refutes the claim.
 -   **Neutral:** The evidence discusses the topic but is inconclusive.
 
+### 5.6 Relationship Claim Detection (v2.3)
+A specialized module detects claims asserting familial or personal relationships (e.g., "X is Y's son"). These claims require explicit verification because topic-matching often produces false positives.
+
+**Detection Pipeline:**
+1.  `is_relationship_claim()`: Identifies claims containing relationship keywords (son of, daughter of, married to, etc.).
+2.  `extract_relationship_entities()`: Parses (subject, relationship, object) tuples using regex patterns.
+3.  `verify_relationship_claim()`: Compares extracted relationships from claim and evidence. If evidence mentions a *different* relative for the same subject, the system returns "refutes" with 85% confidence.
+
+**Example:**
+- Claim: "Rahul Gandhi is Modi's son"
+- Evidence: "Rahul Gandhi is the son of Rajiv Gandhi"
+- Result: **Refutes** (different parent detected)
+
 ---
 
 ## 6. Model Selection and Usage
@@ -138,10 +151,10 @@ The final **Net Score** is the sum of weighted evidence signals:
 $$NetScore = \sum (Sim_i \times Conf_i \times Dir_i \times W_{src, i})$$
 
 ### 7.4 Verdict Thresholds
-The Net Score is mapped to a discrete verdict:
--   **Likely True:** Score $> 0.4$
--   **Likely False:** Score $< -0.4$
--   **Mixed / Misleading:** $-0.4 \le Score \le 0.4$
+The Net Score is mapped to a discrete verdict (thresholds tuned for precision/recall balance):
+-   **Likely True:** Score $> 0.35$
+-   **Likely False:** Score $< -0.35$
+-   **Mixed / Misleading:** $-0.35 \le Score \le 0.35$
 -   **Unverified:** No evidence found.
 
 ---
