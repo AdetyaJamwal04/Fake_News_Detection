@@ -1,9 +1,11 @@
 """
-Query Generator Module
+Query Generator Module — V2 with LLM Enhancement
 
-Generates multiple search queries from a claim using NER (Named Entity Recognition).
-Creates diverse queries to maximize evidence coverage.
-Model is lazy-loaded via model_registry to prevent import-time memory allocation.
+Generates search queries from a claim using:
+1. LLM decomposition (Groq, if available) — precise, diverse queries
+2. NER-based fallback — keyword-based queries using spaCy entities
+
+Falls back gracefully when LLM is unavailable.
 """
 
 import logging
@@ -16,9 +18,8 @@ def generate_queries(claim: str, keywords: list[str] | None = None) -> List[str]
     """
     Generate multiple search queries from a claim.
     
-    Uses Named Entity Recognition to identify key entities (people, organizations,
-    locations) and optional keywords from KeyBERT to create diverse queries
-    for better evidence coverage.
+    V2: Tries LLM decomposition first for more precise, diverse queries.
+    Falls back to NER-based queries if LLM is unavailable.
     
     Args:
         claim: The claim to generate queries for
@@ -26,6 +27,27 @@ def generate_queries(claim: str, keywords: list[str] | None = None) -> List[str]
         
     Returns:
         List of unique search query strings
+    """
+    # Try LLM decomposition first (much better queries)
+    try:
+        from app.core.llm_helper import decompose_claim
+        llm_queries = decompose_claim(claim)
+        if llm_queries and len(llm_queries) >= 3:
+            # Always include the raw claim + fact check as baseline
+            all_queries = [claim.lower(), f"{claim.lower()} fact check"] + llm_queries
+            unique = list(dict.fromkeys(all_queries))  # Dedup preserving order
+            logger.info(f"Generated {len(unique)} queries (LLM + baseline)")
+            return unique[:10]
+    except Exception as e:
+        logger.debug(f"LLM query generation failed: {e}")
+    
+    # Fallback: NER-based queries
+    return _ner_based_queries(claim, keywords)
+
+
+def _ner_based_queries(claim: str, keywords: list[str] | None = None) -> List[str]:
+    """
+    Generate queries using Named Entity Recognition (original method).
     """
     from app.core.model_registry import get_spacy_nlp
     
@@ -62,8 +84,7 @@ def generate_queries(claim: str, keywords: list[str] | None = None) -> List[str]
             queries.append(f"{kw} news")
 
     unique_queries = list(set(queries))
-    # Limit to 10 queries max for performance
     unique_queries = unique_queries[:10]
-    logger.info(f"Generated {len(unique_queries)} queries from claim")
+    logger.info(f"Generated {len(unique_queries)} queries from claim (NER fallback)")
     
     return unique_queries

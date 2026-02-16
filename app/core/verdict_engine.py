@@ -160,18 +160,21 @@ def build_explanation(evidences: List[Dict], scores: List[Tuple[float, str]],
     }
 
 
-def compute_final_verdict(evidences: List[Dict], include_explanation: bool = True) -> Dict:
+def compute_final_verdict(evidences: List[Dict], claim: str = "", include_explanation: bool = True) -> Dict:
     """
     Compute the final verdict based on weighted aggregation of all evidence.
+    
+    V2: Includes optional LLM tiebreaker for MIXED verdicts.
     
     Decision Thresholds (tuned for accuracy):
         - net_score > 0.35  → LIKELY TRUE
         - net_score < -0.35 → LIKELY FALSE
-        - otherwise         → MIXED / MISLEADING
+        - otherwise         → MIXED / MISLEADING (may use LLM tiebreaker)
         - no evidence       → UNVERIFIED
     
     Args:
         evidences: List of evidence dictionaries
+        claim: The original claim text (needed for LLM tiebreaker)
         include_explanation: Whether to include detailed explanation
         
     Returns:
@@ -182,7 +185,8 @@ def compute_final_verdict(evidences: List[Dict], include_explanation: bool = Tru
         result = {
             "verdict": "UNVERIFIED",
             "confidence": 0.0,
-            "net_score": 0
+            "net_score": 0,
+            "summary": "No relevant evidence was found to verify or refute this claim.",
         }
         if include_explanation:
             result["explanation"] = build_explanation([], [], 0, "UNVERIFIED")
@@ -202,16 +206,60 @@ def compute_final_verdict(evidences: List[Dict], include_explanation: bool = Tru
         verdict = "LIKELY FALSE"
     else:
         verdict = "MIXED / MISLEADING"
+    
+    # V2: LLM tiebreaker for MIXED verdicts
+    # Only activates when NLI is inconclusive and Groq is available
+    llm_used = False
+    if verdict == "MIXED / MISLEADING" and claim:
+        try:
+            from app.core.llm_helper import llm_tiebreaker
+            llm_result = llm_tiebreaker(claim, evidences)
+            if llm_result and "verdict" in llm_result:
+                llm_verdict = llm_result["verdict"]
+                llm_confidence = float(llm_result.get("confidence", 0.5))
+                llm_reasoning = llm_result.get("reasoning", "")
+                
+                # Only override MIXED if LLM is reasonably confident
+                if llm_confidence >= 0.6 and llm_verdict in ("LIKELY TRUE", "LIKELY FALSE"):
+                    verdict = llm_verdict
+                    confidence = llm_confidence
+                    llm_used = True
+                    logger.info(f"LLM tiebreaker override: {verdict} ({confidence:.2f}) - {llm_reasoning}")
+                elif llm_verdict == "UNVERIFIABLE":
+                    verdict = "UNVERIFIED"
+                    llm_used = True
+                    logger.info(f"LLM tiebreaker: UNVERIFIABLE - {llm_reasoning}")
+        except Exception as e:
+            logger.debug(f"LLM tiebreaker skipped: {e}")
 
-    logger.info(f"Verdict: {verdict} (score: {net_score:.3f}, confidence: {confidence:.3f})")
+    logger.info(f"Verdict: {verdict} (score: {net_score:.3f}, confidence: {confidence:.3f}{', LLM-assisted' if llm_used else ''})")
 
     result = {
         "verdict": verdict,
         "confidence": round(confidence, 3),
-        "net_score": round(net_score, 3)
+        "net_score": round(net_score, 3),
+        "llm_assisted": llm_used,
     }
     
     if include_explanation:
         result["explanation"] = build_explanation(evidences, score_data, net_score, verdict)
+    
+    # Generate plain-language LLM summary
+    try:
+        from app.core.llm_helper import generate_verdict_summary
+        result["summary"] = generate_verdict_summary(
+            claim=claim,
+            verdict=verdict,
+            confidence=confidence,
+            evidence_list=evidences,
+            explanation=result.get("explanation"),
+        )
+    except Exception as e:
+        logger.debug(f"LLM summary generation skipped: {e}")
+        # Fallback to rule-based decision reason
+        if result.get("explanation") and "decision_reason" in result["explanation"]:
+            result["summary"] = result["explanation"]["decision_reason"]
+        else:
+            result["summary"] = f"The claim was assessed as {verdict}."
     
     return result

@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 SIMILARITY_THRESHOLD = 0.25  # Lowered slightly for more coverage
 
 # Number of top sentences to analyze per source (accuracy improvement)
-TOP_SENTENCES_PER_SOURCE = 3
+TOP_SENTENCES_PER_SOURCE = 1  # V2: reduced from 3 — best match is sufficient with local NLI
 
 
 def split_into_sentences(text: str) -> list:
@@ -113,6 +113,10 @@ def process_single_result(item: dict, claim: str) -> dict:
         aggregated_stance = aggregate_sentence_stances(stance_results)
         
         source_weight = get_source_weight(url)
+        
+        # Debug: log per-source stance results
+        stance_summary = ", ".join([f"{r['stance']}({r['confidence']:.2f})" for r in stance_results])
+        logger.info(f"Source {url[:50]}... sim={best_sim:.3f} stances=[{stance_summary}] → {aggregated_stance['label']}({aggregated_stance['confidence']:.2f}) weight={source_weight:.1f}")
         
         return {
             "url": url,

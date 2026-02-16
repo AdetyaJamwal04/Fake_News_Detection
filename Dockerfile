@@ -1,4 +1,5 @@
-# Production Dockerfile for Fake News Detector API
+# Production Dockerfile for VeriFact API
+# Lightweight — no local ML models (uses HF Inference API)
 FROM python:3.10-slim
 
 # Set working directory
@@ -20,11 +21,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Set NLTK data path
 ENV NLTK_DATA=/usr/local/share/nltk_data
 
-# Create directory
-RUN mkdir -p /usr/local/share/nltk_data
-
-# Download NLTK data to specific directory
-RUN python -c "import nltk; nltk.download('punkt', download_dir='/usr/local/share/nltk_data'); nltk.download('stopwords', download_dir='/usr/local/share/nltk_data')"
+# Create directory and download NLTK data
+RUN mkdir -p /usr/local/share/nltk_data && \
+    python -c "import nltk; nltk.download('punkt', download_dir='/usr/local/share/nltk_data'); nltk.download('stopwords', download_dir='/usr/local/share/nltk_data'); nltk.download('punkt_tab', download_dir='/usr/local/share/nltk_data')"
 
 # Copy application code
 COPY . .
@@ -37,13 +36,13 @@ USER appuser
 # Expose port
 EXPOSE 5000
 
-# Health check - increased start period for lazy model loading on first request
-HEALTHCHECK --interval=30s --timeout=30s --start-period=120s --retries=3 \
+# Health check — fast startup, no model loading delay
+HEALTHCHECK --interval=30s --timeout=15s --start-period=30s --retries=3 \
     CMD curl -f http://localhost:5000/api/health || exit 1
 
-# Run with gunicorn: SINGLE WORKER to prevent fork memory duplication
-# --preload loads app before fork (moot with 1 worker, but explicit)
-# --threads 4 provides concurrency without memory duplication
-# --timeout 300 for slow first-request model loading
-# --max-requests 100 forces worker restart to clear memory leaks
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "1", "--threads", "4", "--timeout", "300", "--max-requests", "100", "--max-requests-jitter", "10", "app_flask:app"]
+# Run with gunicorn
+# --workers 2: safe now (no 1.6GB model per worker)
+# --threads 4: concurrency
+# --timeout 120: API calls are fast, no local model loading
+# --max-requests 500: periodic worker restart for garbage collection
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--threads", "4", "--timeout", "120", "--max-requests", "500", "--max-requests-jitter", "50", "app_flask:app"]

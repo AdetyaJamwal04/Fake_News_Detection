@@ -803,6 +803,74 @@ footer {
     }
 }
 
+/* ==================== AI Summary Card ==================== */
+.ai-summary-container {
+    position: relative;
+    overflow: hidden;
+    border-left: 4px solid var(--accent);
+    animation: summaryFadeIn 0.6s ease;
+}
+
+.ai-summary-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.05), rgba(139, 92, 246, 0.05));
+    pointer-events: none;
+}
+
+.ai-summary-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+    position: relative;
+}
+
+.ai-summary-icon {
+    font-size: 22px;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(139, 92, 246, 0.15));
+    border-radius: 10px;
+    border: 1px solid rgba(99, 102, 241, 0.2);
+}
+
+.ai-summary-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-primary);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.ai-summary-text {
+    font-size: 16px;
+    line-height: 1.75;
+    color: var(--text-primary);
+    margin: 0;
+    position: relative;
+    font-weight: 400;
+}
+
+@keyframes summaryFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
 /* ==================== Explanation Mode ==================== */
 .explanation-container {
     margin-top: 20px;

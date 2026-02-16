@@ -90,31 +90,30 @@ jobs:
             docker stop ${{ env.CONTAINER_NAME }} 2>/dev/null || true
             docker rm ${{ env.CONTAINER_NAME }} 2>/dev/null || true
             
-            # Run new container with memory-safe settings
-            # --memory=3g: Hard limit leaves 1GB for OS/SSH
-            # --restart=on-failure:3: Prevents infinite OOM loops
-            # -e STANCE_MODEL=deberta: Use smaller model (700MB vs 1.6GB)
+            # Run new container — lightweight, no local ML models
+            # --memory=1g: Sufficient (no 1.6GB BART model)
+            # --restart=on-failure:3: Prevents restart loops
             docker run -d \
               --name ${{ env.CONTAINER_NAME }} \
               -p 5000:5000 \
-              --memory=3g \
-              --memory-swap=3g \
+              --memory=1g \
+              --memory-swap=1g \
+              -e HF_API_TOKEN=${{ secrets.HF_API_TOKEN }} \
               -e TAVILY_API_KEY=${{ secrets.TAVILY_API_KEY }} \
-              -e STANCE_MODEL=bart \
+              -e BRAVE_API_KEY=${{ secrets.BRAVE_API_KEY }} \
               --restart=on-failure:3 \
               ${{ env.DOCKER_IMAGE }}:latest
             
             # POST-DEPLOYMENT CLEANUP
-            # Remove old/dangling images after new container is running
             docker image prune -f
             
             # Show final disk space
             echo "Disk space after deployment:"
             df -h /
             
-            # Wait longer for lazy model loading on first health check
-            echo "Waiting for container to stabilize (2 minutes)..."
-            sleep 120
+            # Quick startup — no model loading delay
+            echo "Waiting for container to start (30 seconds)..."
+            sleep 30
             
             # Health check
             curl -f http://localhost:5000/api/health || exit 1

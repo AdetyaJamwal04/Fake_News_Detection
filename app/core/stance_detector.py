@@ -1,11 +1,10 @@
 """
 Stance Detector Module with Optimizations
 
-Uses zero-shot classification to determine if evidence supports, refutes, 
-or discusses a claim.
+Uses zero-shot classification via HF Inference API to determine if evidence
+supports, refutes, or discusses a claim.
 
-Default model: BART-MNLI (~1.6GB, higher accuracy)
-Alternative: DeBERTa-v3 (set STANCE_MODEL=deberta, ~700MB, faster)
+Model: BART-MNLI (facebook/bart-large-mnli) running on HF's GPU servers.
 
 Optimizations applied:
 - Confidence calibration (Rank 13)
@@ -18,19 +17,6 @@ import re
 from typing import Dict, List, Tuple
 
 logger = logging.getLogger(__name__)
-
-MODELS = {
-    "deberta": {
-        "name": "MoritzLaurer/deberta-v3-base-zeroshot-v2.0",
-        "display": "DeBERTa-v3",
-        "size": "~700MB"
-    },
-    "bart": {
-        "name": "facebook/bart-large-mnli",
-        "display": "BART-large",
-        "size": "~1.6GB"
-    }
-}
 
 # Outcome modifiers that indicate non-completion or different action
 OUTCOME_MODIFIERS = {
@@ -73,10 +59,9 @@ RELATIONSHIP_KEYWORDS = [
 
 
 def get_current_model() -> str:
-    """Return the currently loaded model name."""
-    from app.core.model_registry import get_nli_classifier
-    _, model_key = get_nli_classifier()
-    return MODELS.get(model_key, MODELS["deberta"])["display"]
+    """Return the currently used model name."""
+    from app.core.model_registry import NLI_MODEL
+    return NLI_MODEL
 
 
 # Optimization #13: Confidence calibration
@@ -227,24 +212,22 @@ def detect_outcome_mismatch(claim: str, evidence: str) -> Tuple[bool, str]:
 
 def detect_stance(evidence_sentence: str, claim: str) -> Dict:
     """
-    Performs zero-shot stance detection using NLI with enhanced verification.
+    Performs direct NLI stance detection using local cross-encoder model.
     
     Uses natural language inference to determine if the evidence
     supports, refutes, or is neutral towards the claim.
     
-    v2.2 Improvements:
-    - Stricter hypothesis formulation for high-stakes claims
-    - Outcome modifier detection to catch "attempted" vs "completed" confusion
-    - Explicit negation pattern matching
+    V2: Uses local cross-encoder (nli-deberta-v3-small) instead of HF API.
+    Direct NLI is fundamentally more accurate than zero-shot classification.
     
     Args:
         evidence_sentence: The sentence from the article (premise)
-        claim: The claim to fact-check (used to form hypotheses)
+        claim: The claim to fact-check (hypothesis)
     
     Returns:
         dict: {label: str, confidence: float, modifier_detected: bool}
     """
-    from app.core.model_registry import get_nli_classifier
+    from app.core.model_registry import nli_predict
     
     if not evidence_sentence or not claim:
         return {"label": "neutral", "confidence": 0, "modifier_detected": False}
@@ -257,16 +240,14 @@ def detect_stance(evidence_sentence: str, claim: str) -> Dict:
     
     if has_mismatch:
         logger.info(f"Outcome mismatch detected: {mismatch_reason}")
-        # Override to "refutes" or "discusses" based on mismatch type
         if "negated" in mismatch_reason or "explicit_negation" in mismatch_reason:
             return {
                 "label": "refutes",
-                "confidence": 0.75,  # High confidence in the override
+                "confidence": 0.75,
                 "modifier_detected": True,
                 "mismatch_reason": mismatch_reason
             }
         else:
-            # Action changed - less certain, mark as discusses
             return {
                 "label": "discusses",
                 "confidence": 0.6,
@@ -281,44 +262,43 @@ def detect_stance(evidence_sentence: str, claim: str) -> Dict:
             logger.info(f"Relationship contradiction detected: {contradiction_reason}")
             return {
                 "label": "refutes",
-                "confidence": 0.85,  # High confidence - explicit contradiction
+                "confidence": 0.85,
                 "modifier_detected": True,
                 "mismatch_reason": f"relationship_mismatch:{contradiction_reason}"
             }
 
-    
     try:
-        nli_classifier, _ = get_nli_classifier()
+        # V2: Direct NLI inference — (premise, hypothesis=claim)
+        # Cross-encoder outputs: {entailment, contradiction, neutral} scores
+        # This directly answers: "Does this evidence support/contradict the claim?"
+        nli_scores = nli_predict(premise, claim)
         
-        # Use stricter hypothesis for high-stakes claims
-        if is_high_stakes_claim(claim):
-            hypotheses = [
-                f"This proves that: {claim}",
-                f"This contradicts or disproves: {claim}",
-                f"This does not confirm or deny: {claim}"
-            ]
+        entailment = nli_scores["entailment"]
+        contradiction = nli_scores["contradiction"]
+        neutral = nli_scores["neutral"]
+        
+        # Map NLI labels to stance labels
+        if entailment > contradiction and entailment > neutral:
+            label = "supports"
+            raw_confidence = entailment
+        elif contradiction > entailment and contradiction > neutral:
+            label = "refutes"
+            raw_confidence = contradiction
         else:
-            hypotheses = [
-                f"This supports the claim: {claim}",
-                f"This contradicts the claim: {claim}",
-                f"This is unrelated to the claim: {claim}"
-            ]
+            label = "discusses"
+            raw_confidence = neutral
         
-        result = nli_classifier(
-            premise, 
-            hypotheses,
-            multi_label=False
-        )
-        
-        label_map = {
-            hypotheses[0]: "supports",
-            hypotheses[1]: "refutes",
-            hypotheses[2]: "neutral"
-        }
-        
-        top_hypothesis = result["labels"][0]
-        label = label_map.get(top_hypothesis, "neutral")
-        raw_confidence = float(result["scores"][0])
+        # Minimum confidence thresholds
+        # Entailment needs higher threshold (topic overlap causes false positives)
+        # Contradiction needs lower threshold (harder to detect but still meaningful)
+        MIN_SUPPORT_CONFIDENCE = 0.50
+        MIN_REFUTE_CONFIDENCE = 0.40
+        if label == "supports" and raw_confidence < MIN_SUPPORT_CONFIDENCE:
+            logger.debug(f"Low entailment ({raw_confidence:.3f}) - downgrading to discusses")
+            label = "discusses"
+        elif label == "refutes" and raw_confidence < MIN_REFUTE_CONFIDENCE:
+            logger.debug(f"Low contradiction ({raw_confidence:.3f}) - downgrading to discusses")
+            label = "discusses"
         
         # Apply confidence calibration
         confidence = calibrate_confidence(raw_confidence)
@@ -326,15 +306,12 @@ def detect_stance(evidence_sentence: str, claim: str) -> Dict:
         # For high-stakes claims, require higher confidence for "supports"
         if is_high_stakes_claim(claim) and label == "supports":
             if confidence < 0.7:
-                # Not confident enough - downgrade to "discusses"
                 label = "discusses"
                 logger.info(f"High-stakes claim, low confidence ({confidence:.2f}) - downgrading to discusses")
         
-        # v2.3: For relationship claims, require VERY high confidence for "supports"
-        # Topic matching often causes false positives for biographical claims
+        # For relationship claims, require VERY high confidence for "supports"
         if is_relationship_claim(claim) and label == "supports":
             if confidence < 0.8:
-                # Relationship claims need explicit confirmation
                 label = "discusses"
                 logger.info(f"Relationship claim, insufficient confidence ({confidence:.2f}) - downgrading to discusses")
         

@@ -216,6 +216,16 @@ function displayResults(data) {
     // Processing time
     document.getElementById('processing-time').textContent = `${data.processing_time}s`;
 
+    // AI Summary section
+    const summaryContainer = document.getElementById('ai-summary-container');
+    const summaryText = document.getElementById('ai-summary-text');
+    if (data.summary && data.summary.trim()) {
+        summaryText.textContent = data.summary;
+        summaryContainer.style.display = 'block';
+    } else {
+        summaryContainer.style.display = 'none';
+    }
+
     // Explanation section
     displayExplanation(data.explanation);
 
@@ -371,6 +381,7 @@ Claim: ${lastResult.claim}
 Verdict: ${lastResult.verdict}
 Confidence: ${Math.round(lastResult.confidence * 100)}%
 Net Score: ${lastResult.net_score}
+${lastResult.summary ? `\nAI Summary: ${lastResult.summary}` : ''}
 
 Evidence Sources:
 ${lastResult.evidences.map((e, i) => `${i + 1}. ${e.url}\n   "${e.best_sentence}"\n   Stance: ${e.stance} (${Math.round(e.stance_score * 100)}%)`).join('\n\n')}
@@ -475,6 +486,13 @@ function exportPDF() {
                 <p style="margin: 0 0 6px 0; color: #64748b; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">Claim Analyzed</p>
                 <p style="margin: 0; font-size: 14px; line-height: 1.5; color: #0f172a;">${lastResult.claim}</p>
             </div>
+            
+            ${lastResult.summary ? `
+            <div style="background: linear-gradient(135deg, rgba(59, 130, 246, 0.06), rgba(139, 92, 246, 0.06)); padding: 15px; border-radius: 6px; margin-bottom: 20px; border-left: 3px solid #6366f1;">
+                <p style="margin: 0 0 6px 0; color: #6366f1; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 700;">🤖 AI Summary</p>
+                <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #0f172a;">${lastResult.summary}</p>
+            </div>
+            ` : ''}
             
             <div style="display: flex; gap: 10px; margin-bottom: 20px;">
                 <div style="flex: 1; background: #f8fafc; padding: 12px; border-radius: 6px; text-align: center;">

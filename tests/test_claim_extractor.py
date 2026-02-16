@@ -50,20 +50,17 @@ class TestExtractClaim:
         assert claim == ""
         assert keywords == []
         
-    @patch('app.core.model_registry.get_keybert_model')
-    def test_extract_with_keywords(self, mock_get_keybert):
+    @patch('app.core.claim_extractor.extract_keywords_hf')
+    def test_extract_with_keywords(self, mock_extract_kw):
         """Test that keywords are returned alongside claim."""
-        # Mock KeyBERT model
-        mock_kw_model = MagicMock()
-        mock_kw_model.extract_keywords.return_value = [('python', 0.9), ('code', 0.8)]
-        mock_get_keybert.return_value = mock_kw_model
+        # Mock HF-based keyword extraction
+        mock_extract_kw.return_value = ['python', 'programming', 'language']
         
         text = "Python is a great programming language. It is used by many developers."
         claim, keywords = extract_claim_from_text(text)
         
         assert claim  # Should find a claim
         assert 'python' in keywords
-        assert 'code' in keywords
 
 class TestExtractFromUrl:
     """Tests for URL extraction."""

@@ -1,3 +1,6 @@
+import os
+os.environ["USE_TF"] = "NO"       # Tell transformers to skip TensorFlow entirely (we use PyTorch only)
+os.environ["USE_TORCH"] = "YES"   # Explicitly prefer PyTorch
 """
 Flask REST API for Claim Verification with Optimizations
 
@@ -20,7 +23,6 @@ from pydantic import BaseModel, field_validator, ValidationError
 from whitenoise import WhiteNoise
 from typing import Optional
 import sys
-import os
 import time
 import logging
 import threading
@@ -243,7 +245,7 @@ def check_claim():
         queries = generate_queries(claim, keywords=keywords)
         search_results = web_search(queries, max_results=validated.max_results)
         evidences = build_evidence(claim, search_results)
-        verdict_result = compute_final_verdict(evidences)
+        verdict_result = compute_final_verdict(evidences, claim=claim)
         
         processing_time = round(time.time() - start_time, 2)
         logger.info(f"Completed in {processing_time}s - Verdict: {verdict_result['verdict']}")
@@ -254,6 +256,7 @@ def check_claim():
             'verdict': verdict_result['verdict'],
             'confidence': verdict_result['confidence'],
             'net_score': verdict_result['net_score'],
+            'summary': verdict_result.get('summary', ''),
             'explanation': verdict_result.get('explanation'),
             'evidences': evidences,
             'sources_analyzed': len(evidences),

@@ -99,3 +99,6 @@ data/
 
 FAILURE_CASE_ANALYSIS.md
 fact-check-*.json
+basics.md
+POTENTIAL_FAILURE_CASES.md
+

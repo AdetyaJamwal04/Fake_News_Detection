@@ -1,36 +1,58 @@
 """
-Embedder Module - Semantic Similarity with Accuracy Improvements
+Semantic Similarity Module — Local SBERT
 
-Uses Sentence-BERT (SBERT) to compute semantic similarity between claims and evidence.
-Converts text to 384-dimensional vectors (MiniLM) and compares using cosine similarity.
+Uses sentence-transformers/all-MiniLM-L6-v2 running locally for
+embedding generation and cosine similarity computation.
 
-Accuracy improvements:
-- Returns top-N matching sentences (not just top-1)
-- LRU cache for claim embeddings
+V2: Runs locally instead of HF Inference API — no timeouts, no rate limits.
 """
 
-from sentence_transformers import util
-from functools import lru_cache
 import logging
-from typing import Tuple, List, Optional
-import hashlib
+import numpy as np
+from functools import lru_cache
+from typing import List, Tuple
 
 logger = logging.getLogger(__name__)
 
 
-# LRU cache for claim embeddings (bounded to 32 entries)
+def _cosine_similarity(vec_a: np.ndarray, vec_b: np.ndarray) -> float:
+    """Compute cosine similarity between two vectors."""
+    norm_a = np.linalg.norm(vec_a)
+    norm_b = np.linalg.norm(vec_b)
+    if norm_a == 0 or norm_b == 0:
+        return 0.0
+    return float(np.dot(vec_a, vec_b) / (norm_a * norm_b))
+
+
+def _embed_texts(texts: List[str]) -> np.ndarray:
+    """
+    Embed texts using local SBERT model.
+    
+    Args:
+        texts: List of strings to embed.
+        
+    Returns:
+        numpy array of shape (len(texts), 384).
+    """
+    from app.core.model_registry import sbert_encode
+    
+    if not texts:
+        return np.array([])
+    
+    try:
+        return sbert_encode(texts)
+    except Exception as e:
+        logger.error(f"SBERT embedding error: {e}")
+        return np.zeros((len(texts), 384))
+
+
 @lru_cache(maxsize=32)
-def _encode_claim_cached(claim_hash: str, claim: str):
-    """Cache claim embeddings by hash to avoid re-encoding same claims."""
-    from app.core.model_registry import get_sbert_model
-    sbert_model = get_sbert_model()
-    return sbert_model.encode(claim, convert_to_tensor=True)
-
-
-def encode_claim(claim: str):
-    """Get cached claim embedding."""
-    claim_hash = hashlib.md5(claim.encode()).hexdigest()
-    return _encode_claim_cached(claim_hash, claim)
+def _embed_claim(claim: str) -> tuple:
+    """Cache claim embeddings (converted to tuple for hashability)."""
+    embedding = _embed_texts([claim])
+    if embedding.size == 0:
+        return tuple([0.0] * 384)
+    return tuple(embedding[0].tolist())
 
 
 def get_best_matching_sentences(
@@ -39,81 +61,42 @@ def get_best_matching_sentences(
     top_n: int = 3
 ) -> List[Tuple[str, float]]:
     """
-    Find the top N sentences most semantically similar to the claim.
+    Find top-N sentences most semantically similar to the claim.
+    
+    Uses local SBERT embeddings and cosine similarity.
     
     Args:
-        claim: The claim to fact-check
-        sentences: List of candidate sentences from an article
+        claim: The claim to compare against
+        sentences: List of candidate sentences
         top_n: Number of top matches to return
-        
+    
     Returns:
         List of (sentence, similarity_score) tuples, sorted by score descending
     """
-    from app.core.model_registry import get_sbert_model
-    
-    if not sentences:
+    if not sentences or not claim:
         return []
-
-    sbert_model = get_sbert_model()
     
-    # Use cached claim embedding
-    claim_emb = encode_claim(claim)
-    sent_embs = sbert_model.encode(sentences, convert_to_tensor=True, batch_size=32)
-
-    # Compute cosine similarity
-    cosine_scores = util.pytorch_cos_sim(claim_emb, sent_embs)[0]
-
-    # Convert to Python list
-    scores_list = cosine_scores.cpu().tolist()
-
-    # Create list of (sentence, score) tuples
-    scored_sentences = list(zip(sentences, scores_list))
+    # Filter out very short sentences
+    valid_sentences = [s for s in sentences if len(s.strip()) > 20]
+    if not valid_sentences:
+        return []
     
-    # Sort by score descending and return top N
+    # Get claim embedding (cached)
+    claim_vec = np.array(_embed_claim(claim))
+    
+    # Get sentence embeddings (batch — fast locally)
+    sentence_vecs = _embed_texts(valid_sentences)
+    
+    if sentence_vecs.size == 0:
+        return []
+    
+    # Compute cosine similarities
+    scored_sentences = []
+    for idx, sent in enumerate(valid_sentences):
+        if idx < len(sentence_vecs):
+            sim = _cosine_similarity(claim_vec, sentence_vecs[idx])
+            scored_sentences.append((sent, float(sim)))
+    
+    # Sort by similarity (descending) and return top N
     scored_sentences.sort(key=lambda x: x[1], reverse=True)
-    
     return scored_sentences[:top_n]
-
-
-def get_best_matching_sentence(
-    claim: str, 
-    sentences: List[str]
-) -> Tuple[Optional[str], float, List[float]]:
-    """
-    Find the sentence most semantically similar to the claim.
-    (Backwards compatible wrapper)
-    
-    Args:
-        claim: The claim to fact-check
-        sentences: List of candidate sentences from an article
-        
-    Returns:
-        Tuple of:
-            - best_sentence: The most similar sentence (or None)
-            - best_score: Similarity score (0-1)
-            - all_scores: List of all similarity scores
-    """
-    from app.core.model_registry import get_sbert_model
-    
-    if not sentences:
-        return None, 0, []
-
-    sbert_model = get_sbert_model()
-    
-    # Use cached claim embedding
-    claim_emb = encode_claim(claim)
-    sent_embs = sbert_model.encode(sentences, convert_to_tensor=True, batch_size=32)
-
-    # Compute cosine similarity
-    cosine_scores = util.pytorch_cos_sim(claim_emb, sent_embs)[0]
-
-    # Convert to Python list
-    scores_list = cosine_scores.cpu().tolist()
-
-    # Get index of highest match
-    best_idx = scores_list.index(max(scores_list))
-
-    best_sentence = sentences[best_idx]
-    best_score = scores_list[best_idx]
-
-    return best_sentence, best_score, scores_list
