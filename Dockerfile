@@ -27,13 +27,8 @@ RUN mkdir -p /usr/local/share/nltk_data && \
 
 # Pre-download ML models during build (avoids runtime download failures + cold-start delays)
 # Models are cached in /root/.cache/huggingface and later moved to appuser's home
-RUN python -c "\
-    from transformers import AutoTokenizer, AutoModelForSequenceClassification; \
-    AutoTokenizer.from_pretrained('cross-encoder/nli-deberta-v3-small'); \
-    AutoModelForSequenceClassification.from_pretrained('cross-encoder/nli-deberta-v3-small'); \
-    from sentence_transformers import SentenceTransformer; \
-    SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2'); \
-    print('All models pre-downloaded successfully')"
+RUN python -c "from transformers import AutoTokenizer, AutoModelForSequenceClassification; AutoTokenizer.from_pretrained('cross-encoder/nli-deberta-v3-small'); AutoModelForSequenceClassification.from_pretrained('cross-encoder/nli-deberta-v3-small'); print('NLI model downloaded')"
+RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2'); print('SBERT model downloaded')"
 
 # Copy application code
 COPY . .
