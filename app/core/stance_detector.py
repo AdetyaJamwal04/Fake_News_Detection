@@ -1,15 +1,15 @@
 """
 Stance Detector Module with Optimizations
 
-Uses zero-shot classification via HF Inference API to determine if evidence
-supports, refutes, or discusses a claim.
+Uses local cross-encoder NLI (nli-deberta-v3-small) to determine if evidence
+supports, refutes, or discusses a claim via direct natural language inference.
 
-Model: BART-MNLI (facebook/bart-large-mnli) running on HF's GPU servers.
+Model: cross-encoder/nli-deberta-v3-small (local, ~180MB, 88% MNLI accuracy).
 
 Optimizations applied:
-- Confidence calibration (Rank 13)
+- Confidence calibration via temperature scaling (Rank 13)
 - Outcome modifier detection (v2.2 - fixes false positives)
-- Stricter entailment hypothesis (v2.2)
+- Relationship claim verification (v2.3)
 """
 
 import logging

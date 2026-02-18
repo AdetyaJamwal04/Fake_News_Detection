@@ -1,6 +1,6 @@
 # Build Guide
 
-Complete guide for building, running, and deploying VeriFact - the Claim Verification System.
+Complete guide for building, running, and deploying VeriFact — the AI-Powered Claim Verification System.
 
 ## Prerequisites
 
@@ -36,7 +36,7 @@ python -m spacy download en_core_web_sm
 
 ```bash
 cp .env.example .env
-# Edit .env and add your TAVILY_API_KEY
+# Edit .env and add your API keys (see Environment Variables section below)
 ```
 
 ### 5. Run the Application
@@ -47,23 +47,32 @@ python app_flask.py
 
 Access at: http://localhost:5000
 
+### 6. Warm Up Models (Optional)
+
+ML models (DeBERTa-v3, MiniLM, spaCy) are lazy-loaded on first request. To pre-load them and avoid cold-start latency:
+
+```bash
+curl -X POST http://localhost:5000/api/warmup
+```
+
 ## Docker Build
 
 ### Build Image
 
 ```bash
-docker build -t fake-news-detector .
+docker build -t verifact .
 ```
 
 ### Run Container
 
 ```bash
 docker run -d \
-  --name fake-news-detector \
+  --name verifact \
   -p 5000:5000 \
   -e TAVILY_API_KEY=your_key \
+  -e GROQ_API_KEY=your_key \
   --restart unless-stopped \
-  fake-news-detector
+  verifact
 ```
 
 ### Using Docker Compose
@@ -72,13 +81,21 @@ docker run -d \
 docker-compose up -d
 ```
 
+### Post-Deployment Model Warmup
+
+After the container starts, warm up the ML models to avoid cold-start latency on the first request:
+
+```bash
+curl -X POST http://localhost:5000/api/warmup
+```
+
 ## AWS EC2 Deployment
 
 ### 1. Launch EC2 Instance
 
 - **AMI:** Ubuntu 22.04 LTS
-- **Instance Type:** t3.medium (2 vCPU, 4GB RAM minimum)
-- **Storage:** 30GB+ (Docker images are large)
+- **Instance Type:** t3.medium or c7i-flex.large (2+ vCPU, 4GB+ RAM minimum)
+- **Storage:** 30GB+ (Docker images + ML model downloads)
 - **Security Group:** Allow ports 22 (SSH), 5000 (App)
 
 ### 2. Install Docker on EC2
@@ -93,10 +110,14 @@ sudo usermod -aG docker ubuntu
 
 ```bash
 docker pull adetyajamwal/fake-news-detector:latest
-docker run -d --name fake-news-detector -p 5000:5000 \
+docker run -d --name verifact -p 5000:5000 \
   -e TAVILY_API_KEY=your_key \
+  -e GROQ_API_KEY=your_key \
   --restart unless-stopped \
   adetyajamwal/fake-news-detector:latest
+
+# Warm up models after container is running
+curl -X POST http://localhost:5000/api/warmup
 ```
 
 ### 4. Set Up Elastic IP (Recommended)
@@ -130,7 +151,7 @@ The container uses `--restart unless-stopped`, which means:
 The project uses automated deployment via `.github/workflows/deploy.yml`:
 
 1. Push to `main` branch triggers the workflow
-2. Tests run first
+2. Tests run first (`pytest`)
 3. Docker image is built and pushed to DockerHub
 4. EC2 instance pulls and runs the new image
 
@@ -140,7 +161,7 @@ The project uses automated deployment via `.github/workflows/deploy.yml`:
 |--------|-------------|
 | `DOCKERHUB_USERNAME` | DockerHub username |
 | `DOCKERHUB_TOKEN` | DockerHub access token |
-| `EC2_HOST` | EC2 public IP |
+| `EC2_HOST` | EC2 public IP (or Elastic IP) |
 | `EC2_SSH_KEY` | Private key for SSH |
 | `TAVILY_API_KEY` | Tavily search API key |
 
@@ -148,11 +169,23 @@ The project uses automated deployment via `.github/workflows/deploy.yml`:
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `TAVILY_API_KEY` | Recommended | API key for Tavily search (primary) |
-| `BRAVE_API_KEY` | No | API key for Brave Search (fallback) |
-| `STANCE_MODEL` | No | `bart` (default) or `deberta` |
+| `TAVILY_API_KEY` | Recommended | Primary search API key (best quality results) |
+| `BRAVE_API_KEY` | No | Brave Search API key (2nd tier fallback) |
+| `GROQ_API_KEY` | No | Enables LLM features: AI summary, query decomposition, verdict tiebreaker |
+| `HF_API_TOKEN` | No | HuggingFace API token (not used in current V2 — all models run locally) |
 | `PORT` | No | Server port (default: 5000) |
 | `DEBUG` | No | Enable debug mode (default: false) |
+
+> **Note:** The system works fully without `GROQ_API_KEY` — it falls back to NER-based queries and rule-based explanations. Groq enhances accuracy but is not required.
+
+## API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/` | GET | Web UI |
+| `/api/health` | GET | Health check with model status and metrics |
+| `/api/check` | POST | Fact-check a claim |
+| `/api/warmup` | POST | Pre-load all ML models |
 
 ## Troubleshooting
 
@@ -168,7 +201,7 @@ df -h
 ### Container Logs
 
 ```bash
-docker logs fake-news-detector --tail 100
+docker logs verifact --tail 100
 ```
 
 ### Health Check
@@ -176,6 +209,13 @@ docker logs fake-news-detector --tail 100
 ```bash
 curl http://localhost:5000/api/health
 ```
+
+### Memory Issues (OOM Kills)
+
+If the container is killed due to OOM on a 4GB instance:
+- Ensure no other heavy processes are running
+- The system already optimizes memory: 3 ThreadPool workers, 50 sentence cap, 10K char spaCy limit, gradients disabled
+- Consider using a larger instance type if issues persist
 
 ## Running Tests
 
@@ -188,4 +228,21 @@ Individual test files:
 pytest tests/test_source_scorer.py -v
 pytest tests/test_query_generator.py -v
 pytest tests/test_verdict_engine.py -v
+pytest tests/test_claim_extractor.py -v
+pytest tests/test_web_search.py -v
+pytest tests/test_llm_summary.py -v
+pytest tests/test_integration.py -v
 ```
+
+## ML Models
+
+All core ML models run **locally** on CPU — no GPU required.
+
+| Model | Purpose | Size | Source |
+|-------|---------|------|--------|
+| `nli-deberta-v3-small` | Stance detection (NLI) | ~180 MB | HuggingFace |
+| `all-MiniLM-L6-v2` | Sentence embeddings (SBERT) | ~90 MB | HuggingFace |
+| `en_core_web_sm` | Tokenization + NER | ~12 MB | spaCy |
+| `llama-3.3-70b-versatile` | LLM reasoning (optional) | API-based | Groq |
+
+Models are lazy-loaded on first request. Use `/api/warmup` to pre-load them.
